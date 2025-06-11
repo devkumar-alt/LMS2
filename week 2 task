@@ -1,0 +1,124 @@
+WITH OrderedProjects AS (
+    SELECT *,
+           ROW_NUMBER() OVER (ORDER BY Start_Date) AS seq
+    FROM Projects
+),
+ProjectGroups AS (
+    SELECT *,
+           DATE_SUB(Start_Date, INTERVAL seq DAY) AS grp
+    FROM OrderedProjects
+)
+SELECT 
+    MIN(Start_Date) AS Start_Date,
+    MAX(End_Date) AS End_Date
+FROM ProjectGroups
+GROUP BY grp
+ORDER BY DATEDIFF(MAX(End_Date), MIN(Start_Date)) ASC,
+         MIN(Start_Date) ASC;
+
+# task 2
+SELECT s.Name
+FROM Students s
+JOIN Friends f ON s.ID = f.ID
+JOIN Packages sp ON s.ID = sp.ID
+JOIN Packages fp ON f.Friend_ID = fp.ID
+WHERE fp.Salary > sp.Salary
+ORDER BY fp.Salary ASC;
+
+# TASK 3
+SELECT DISTINCT f1.X, f1.Y
+FROM Functions f1
+JOIN Functions f2
+  ON f1.X = f2.Y AND f1.Y = f2.X
+WHERE f1.X <= f1.Y
+ORDER BY f1.X;
+#TASK 4
+SELECT 
+    c.contest_id,
+    c.hacker_id,
+    h.name,
+    COALESCE(SUM(ss.total_submissions), 0) AS total_submissions,
+    COALESCE(SUM(ss.total_accepted_submissions), 0) AS total_accepted_submissions,
+    COALESCE(SUM(vs.total_views), 0) AS total_views,
+    COALESCE(SUM(vs.total_unique_views), 0) AS total_unique_views
+FROM Contests c
+JOIN Hackers h ON c.hacker_id = h.hacker_id
+LEFT JOIN Submission_Stats ss ON c.contest_id = ss.contest_id
+LEFT JOIN View_Stats vs ON c.contest_id = vs.contest_id
+GROUP BY c.contest_id, c.hacker_id, h.name
+HAVING 
+    SUM(ss.total_submissions) > 0 OR
+    SUM(ss.total_accepted_submissions) > 0 OR
+    SUM(vs.total_views) > 0 OR
+    SUM(vs.total_unique_views) > 0
+ORDER BY c.contest_id;
+#TASK 5
+SELECT 
+    c.contest_id,
+    c.hacker_id,
+    h.name,
+    COALESCE(SUM(ss.total_submissions), 0) AS total_submissions,
+    COALESCE(SUM(ss.total_accepted_submissions), 0) AS total_accepted_submissions,
+    COALESCE(SUM(vs.total_views), 0) AS total_views,
+    COALESCE(SUM(vs.total_unique_views), 0) AS total_unique_views
+FROM Contests c
+JOIN Hackers h ON c.hacker_id = h.hacker_id
+LEFT JOIN Submission_Stats ss ON c.contest_id = ss.contest_id
+LEFT JOIN View_Stats vs ON c.contest_id = vs.contest_id
+GROUP BY c.contest_id, c.hacker_id, h.name
+HAVING 
+    SUM(ss.total_submissions) > 0 OR
+    SUM(ss.total_accepted_submissions) > 0 OR
+    SUM(vs.total_views) > 0 OR
+    SUM(vs.total_unique_views) > 0
+ORDER BY c.contest_id;
+
+#TASK 6
+WITH Daily_Submissions AS (
+    SELECT
+        submission_date,
+        hacker_id,
+        COUNT(*) AS submission_count
+    FROM Submissions
+    WHERE submission_date BETWEEN '2016-03-01' AND '2016-03-15'
+    GROUP BY submission_date, hacker_id
+),
+Max_Submissions_Per_Day AS (
+    SELECT
+        submission_date,
+        MAX(submission_count) AS max_count
+    FROM Daily_Submissions
+    GROUP BY submission_date
+),
+Top_Hackers AS (
+    SELECT
+        ds.submission_date,
+        ds.hacker_id,
+        ds.submission_count
+    FROM Daily_Submissions ds
+    JOIN Max_Submissions_Per_Day mspd
+      ON ds.submission_date = mspd.submission_date
+     AND ds.submission_count = mspd.max_count
+),
+Final_Hackers AS (
+    SELECT
+        th.submission_date,
+        MIN(th.hacker_id) AS hacker_id
+    FROM Top_Hackers th
+    GROUP BY th.submission_date
+)
+SELECT
+    ds.submission_date,
+    COUNT(DISTINCT ds.hacker_id) AS total_unique_hackers,
+    fh.hacker_id,
+    h.name
+FROM Daily_Submissions ds
+JOIN Final_Hackers fh
+  ON ds.submission_date = fh.submission_date
+JOIN Hackers h
+  ON fh.hacker_id = h.hacker_id
+GROUP BY ds.submission_date, fh.hacker_id, h.name
+ORDER BY ds.submission_date;
+
+
+
