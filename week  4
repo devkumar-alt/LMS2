@@ -1,0 +1,51 @@
+Q1 
+-- Create a result table to store allotments
+CREATE TABLE StudentAllotment (
+    StudentId VARCHAR(20) PRIMARY KEY,
+    SubjectId VARCHAR(20)
+);
+
+DO $$
+DECLARE
+    student RECORD;
+    preference RECORD;
+    subject_capacity INT;
+BEGIN
+    -- Loop over students in decreasing order of GPA
+    FOR student IN
+        SELECT StudentId FROM Student ORDER BY GPA DESC
+    LOOP
+        -- Try to allocate based on preferences from 1 to 5
+        FOR preference IN
+            SELECT sp.SubjectId 
+            FROM StudentPreference sp 
+            JOIN Subject s ON s.SubjectId = sp.SubjectId
+            WHERE sp.StudentId = student.StudentId
+            ORDER BY sp.Preference ASC
+        LOOP
+            -- Check seat availability
+            SELECT RemainingSeats INTO subject_capacity
+            FROM Subject WHERE SubjectId = preference.SubjectId;
+
+            IF subject_capacity > 0 THEN
+                -- Allocate subject
+                INSERT INTO StudentAllotment(StudentId, SubjectId)
+                VALUES (student.StudentId, preference.SubjectId);
+
+                -- Decrease seat count
+                UPDATE Subject 
+                SET RemainingSeats = RemainingSeats - 1
+                WHERE SubjectId = preference.SubjectId;
+
+                -- Exit loop after successful allotment
+                EXIT;
+            END IF;
+        END LOOP;
+
+        -- If no subject allocated, mark as unallotted
+        IF NOT EXISTS (SELECT 1 FROM StudentAllotment WHERE StudentId = student.StudentId) THEN
+            INSERT INTO StudentAllotment(StudentId, SubjectId)
+            VALUES (student.StudentId, NULL);
+        END IF;
+    END LOOP;
+END $$;
